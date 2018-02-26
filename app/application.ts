@@ -39,6 +39,19 @@ class Rect {
         this.bottomRight.x = rect.bottomRight.x;
         this.bottomRight.y = rect.bottomRight.y;
     }
+
+    moveCenterXTo(centerX : number){
+        var left = centerX - this.width() / 2;
+        var right = left + this.width();
+        this.topLeft.x = left;
+        this.bottomRight.x = right;
+    }
+
+    moveBottomTo(bottom: number){
+        this.topLeft.y = bottom - this.height();
+        this.bottomRight.y = bottom;
+    }
+
     width() {
         return this.bottomRight.x - this.topLeft.x;
     }
@@ -106,10 +119,6 @@ class Sprite extends Obstacle {
         this.sprite = sprite;
         this.isVisible = true;
     }
-    hide(){
-        this.sprite.style.display = 'none';
-        this.isVisible = false;
-    }
 
     moveTo(rect: Rect) {
         super.moveTo(rect);
@@ -118,6 +127,15 @@ class Sprite extends Obstacle {
 
         this.sprite.style.left = posX + 'px';
         this.sprite.style.top = posY + 'px';
+    }
+    hide(){
+        this.sprite.style.display = 'none';
+        this.isVisible = false;
+    }
+
+    show(){
+        this.sprite.style.display = 'block';
+        this.isVisible = true;
     }
     checkCollision(anotherRect : Rect) : Side {
         if(!this.isVisible){
@@ -226,14 +244,17 @@ class Game {
     ball: Ball;
     paddle: Paddle;
     bricks: Array<Brick> = [];
+
     keyMap = {};
+
     wallLeft: Obstacle;
     wallTop: Obstacle;
     wallRight: Obstacle;
     wallBottom: Obstacle;
     livesLeft: number;
+    score: number;
 
-    constructor(ballElement: HTMLElement, paddle: HTMLElement,bricks: HTMLCollection, boardElement: HTMLElement, public livesLabel : HTMLElement) {
+    constructor(ballElement: HTMLElement, paddle: HTMLElement,bricks: HTMLCollection, boardElement: HTMLElement, public livesLabel : HTMLElement, public scoreLabel : HTMLElement, public newGameBtn: HTMLElement) {
         this.gameState = GameState.Running;
         this.paddle = new Paddle(paddle, boardElement.offsetWidth);
 
@@ -246,7 +267,10 @@ class Game {
             this.bricks.push(new Brick(<HTMLElement>bricks[i]));
         }
         this.createWalls(this.ball.radius, boardElement.offsetWidth, boardElement.offsetHeight);
+
         this.newGame();
+
+        this.newGameBtn.addEventListener('click', () => this.newGame());
     }
 
     createWalls(radius: number, maxX: number, maxY: number) {
@@ -256,9 +280,29 @@ class Game {
         this.wallBottom = new Obstacle(-radius, maxY, maxX + radius, maxY + radius);
     }
     newGame(){
+        this.newGameBtn.style.display = 'none';
+        this.score = 0;
         this.livesLeft = 3;
         this.livesLabel.innerText = '' +  this.livesLeft;
+        this.ball.show();
+        this.gameState = GameState.Running;
     }
+
+    lostLive(){
+        if (--this.livesLeft) {
+            this.ball.bounceWithAngle(60);
+            var ballPosition = this.ball.clone();
+            ballPosition.moveCenterXTo(this.paddle.centerX());
+            ballPosition.moveBottomTo(this.paddle.topLeft.y - 4);
+            this.ball.moveTo(ballPosition);
+        } else {
+            this.gameState = GameState.GameOver;
+            this.ball.hide();
+            this.newGameBtn.style.display = 'block';
+        }
+        this.livesLabel.innerText = '' +  this.livesLeft;
+    }
+
     run() {
         document.addEventListener('keyup', (e) => this.keyMap[e.keyCode] = false);
         document.addEventListener('keydown', (e) => this.keyMap[e.keyCode] = true);
@@ -277,8 +321,7 @@ class Game {
             }
 
             if(this.wallBottom.checkCollision(newBallPosition)) {
-                this.gameState = GameState.GameOver;
-                this.ball.hide(); 
+                this.lostLive();
                 return;
             }
             if (this.wallLeft.checkCollision(newBallPosition) || this.wallRight.checkCollision(newBallPosition)) {
@@ -303,6 +346,8 @@ class Game {
                 }
                 if(wasHit){
                     brick.hide();
+                    this.score += 20;
+                    this.scoreLabel.innerText = '' + this.score;
                     break;
                 }
             }
@@ -323,7 +368,9 @@ var game = new Game(
     <HTMLElement>document.getElementsByClassName("paddle")[0],
     <HTMLCollection>document.getElementsByClassName("brick"),
     <HTMLElement>document.getElementsByClassName("game-board")[0],
-    <HTMLElement>document.getElementById('lives')
+    <HTMLElement>document.getElementById('lives'),
+    <HTMLElement>document.getElementById('score'),
+    <HTMLElement>document.getElementById('newGame')
 );
 
 
